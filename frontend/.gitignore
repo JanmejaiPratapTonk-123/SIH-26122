@@ -93,6 +93,15 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.npm/
+.yarn/
+.pnp.*
+
+# Generated server bundle and tool caches
+server.js
+.cache/
+.eslintcache
+*.tsbuildinfo
 
 # Vite build output
 dist/

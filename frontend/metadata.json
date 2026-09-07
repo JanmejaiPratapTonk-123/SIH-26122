@@ -1,0 +1,6 @@
+{
+  "name": "Plan2Progress",
+  "description": "Precision capital project controls and site report reconciliation platform for EPC contractors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
