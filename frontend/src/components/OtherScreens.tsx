@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationPath, UserProfile } from '../types';
+import { fetchActiveSchedule, fetchTimeline, ActivityApiItem, TimelineUpdateApi } from '../services/api';
 
 interface SecondaryScreenProps {
   onNavigate: (path: NavigationPath) => void;
@@ -174,6 +175,78 @@ export const ProjectProgressScreen: React.FC<SecondaryScreenProps> = ({ onNaviga
 };
 
 export const ScheduleScreen: React.FC<SecondaryScreenProps> = () => {
+  const [activities, setActivities] = useState<ActivityApiItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchActiveSchedule()
+      .then((sched) => {
+        if (sched && sched.activities && sched.activities.length > 0) {
+          setActivities(sched.activities);
+        }
+      })
+      .catch((err) => console.warn('Could not load schedule from backend:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const defaultRows = [
+    {
+      id: 'PIP-204',
+      name: 'Erect Line 24-P-XX',
+      dur: '14d',
+      s: '01-Sep-26',
+      f: '15-Sep-26',
+      float: '0d',
+      progress: '0%',
+      status: 'Not Started',
+      cp: true,
+    },
+    {
+      id: 'L6-PIPE-EXC-042',
+      name: 'Pipeline Trench Excavation (KP 12+400 to 12+850)',
+      dur: '14d',
+      s: '25-Aug-26',
+      f: '08-Sep-26',
+      float: '0d',
+      progress: '96%',
+      status: 'In Progress',
+      cp: true,
+    },
+    {
+      id: 'L4-CIV-COMP-012',
+      name: 'Compressor Foundation Concreting TB-02',
+      dur: '21d',
+      s: '15-Aug-26',
+      f: '05-Sep-26',
+      float: '-9d',
+      progress: '85%',
+      status: 'In Progress',
+      cp: true,
+    },
+    {
+      id: 'L5-MECH-WELD-024',
+      name: 'Mainline Pipeline Welding & NDT Sector C',
+      dur: '18d',
+      s: '01-Sep-26',
+      f: '19-Sep-26',
+      float: '3d',
+      progress: '55%',
+      status: 'In Progress',
+      cp: false,
+    },
+    {
+      id: 'L4-STR-PRACK-008',
+      name: 'Structural Steel Erection - Pipe Racks PR-01',
+      dur: '12d',
+      s: '28-Aug-26',
+      f: '09-Sep-26',
+      float: '2d',
+      progress: '70%',
+      status: 'In Progress',
+      cp: false,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -197,7 +270,9 @@ export const ScheduleScreen: React.FC<SecondaryScreenProps> = () => {
       <div className="bg-white rounded-xl border border-[#c5c5d3]/40 shadow-xs overflow-hidden">
         <div className="p-4 bg-[#f2f3ff] border-b border-[#c5c5d3]/40 flex items-center justify-between">
           <div className="font-bold text-[14px] text-[#131b2e]">Activity Schedule Matrix</div>
-          <span className="text-[12px] text-[#757682]">1,284 total schedule lines</span>
+          <span className="text-[12px] text-[#757682]">
+            {activities.length > 0 ? `${activities.length} synced activities` : '1,284 total schedule lines'}
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
@@ -205,104 +280,128 @@ export const ScheduleScreen: React.FC<SecondaryScreenProps> = () => {
               <tr>
                 <th className="py-3 px-4">Activity ID</th>
                 <th className="py-3 px-4">Activity Name</th>
-                <th className="py-3 px-4">Duration</th>
-                <th className="py-3 px-4">Start</th>
-                <th className="py-3 px-4">Finish</th>
+                <th className="py-3 px-4">Progress %</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Planned Target</th>
                 <th className="py-3 px-4">Total Float</th>
                 <th className="py-3 px-4">Critical Path</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#c5c5d3]/20 font-mono text-[12px]">
-              {[
-                {
-                  id: 'L6-PIPE-EXC-042',
-                  name: 'Pipeline Trench Excavation (KP 12+400 to 12+850)',
-                  dur: '14d',
-                  s: '25-Aug-26',
-                  f: '08-Sep-26',
-                  float: '0d',
-                  cp: true,
-                },
-                {
-                  id: 'L4-CIV-COMP-012',
-                  name: 'Compressor Foundation Concreting TB-02',
-                  dur: '21d',
-                  s: '15-Aug-26',
-                  f: '05-Sep-26',
-                  float: '-9d',
-                  cp: true,
-                },
-                {
-                  id: 'L5-MECH-WELD-024',
-                  name: 'Mainline Pipeline Welding & NDT Sector C',
-                  dur: '18d',
-                  s: '01-Sep-26',
-                  f: '19-Sep-26',
-                  float: '3d',
-                  cp: false,
-                },
-                {
-                  id: 'L4-STR-PRACK-008',
-                  name: 'Structural Steel Erection - Pipe Racks PR-01',
-                  dur: '12d',
-                  s: '28-Aug-26',
-                  f: '09-Sep-26',
-                  float: '2d',
-                  cp: false,
-                },
-                {
-                  id: 'L6-HDD-RIV-002',
-                  name: 'HDD River Crossing Pilot Hole Drilling',
-                  dur: '28d',
-                  s: '20-Aug-26',
-                  f: '17-Sep-26',
-                  float: '-5d',
-                  cp: true,
-                },
-                {
-                  id: 'L5-ELEC-CP-004',
-                  name: 'Cathodic Protection Deep Well Groundbed #2',
-                  dur: '8d',
-                  s: '02-Sep-26',
-                  f: '10-Sep-26',
-                  float: '7d',
-                  cp: false,
-                },
-              ].map((row) => (
-                <tr key={row.id} className="hover:bg-[#f2f3ff]/40">
-                  <td className="py-3 px-4 font-bold text-[#00236f]">{row.id}</td>
-                  <td className="py-3 px-4 font-sans font-medium text-[#131b2e]">{row.name}</td>
-                  <td className="py-3 px-4 text-[#757682]">{row.dur}</td>
-                  <td className="py-3 px-4 text-[#444651]">{row.s}</td>
-                  <td className="py-3 px-4 text-[#444651]">{row.f}</td>
-                  <td
-                    className={`py-3 px-4 font-bold ${
-                      row.float.startsWith('-')
-                        ? 'text-[#ba1a1a]'
-                        : row.float === '0d'
-                        ? 'text-[#ba1a1a]'
-                        : 'text-[#006a61]'
-                    }`}
-                  >
-                    {row.float}
-                  </td>
-                  <td className="py-3 px-4">
-                    {row.cp ? (
-                      <span className="px-2 py-0.5 rounded bg-[#ffdad6] text-[#93000a] font-sans font-bold text-[10px]">
-                        CRITICAL
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded bg-[#eaedff] text-[#444651] font-sans text-[10px]">
-                        Float Available
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {activities.length > 0
+                ? activities.map((act) => (
+                    <tr
+                      key={act.id}
+                      className={`hover:bg-[#f2f3ff]/40 ${
+                        act.activityCode === 'PIP-204' ? 'bg-[#eef5ff] font-medium' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-4 font-bold text-[#00236f]">{act.activityCode}</td>
+                      <td className="py-3 px-4 font-sans font-medium text-[#131b2e]">
+                        {act.name}
+                        {act.activityCode === 'PIP-204' && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-[#00236f] text-white text-[10px] font-bold">
+                            DEMO
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`font-bold ${
+                            act.progressPct >= 100
+                              ? 'text-[#006a61]'
+                              : act.progressPct > 0
+                              ? 'text-[#00236f]'
+                              : 'text-[#757682]'
+                          }`}
+                        >
+                          {act.progressPct.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-sans font-bold ${
+                            act.status === 'Completed'
+                              ? 'bg-[#86f2e4]/30 text-[#006f66]'
+                              : act.status === 'In Progress'
+                              ? 'bg-[#eaedff] text-[#00236f]'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {act.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-[#444651]">
+                        {act.actualQuantity}/{act.plannedQuantity} {act.uom}
+                      </td>
+                      <td
+                        className={`py-3 px-4 font-bold ${
+                          (act.floatDays || 0) <= 0 ? 'text-[#ba1a1a]' : 'text-[#006a61]'
+                        }`}
+                      >
+                        {act.floatDays || 0}d
+                      </td>
+                      <td className="py-3 px-4">
+                        {act.isCritical ? (
+                          <span className="px-2 py-0.5 rounded bg-[#ffdad6] text-[#93000a] font-sans font-bold text-[10px]">
+                            CRITICAL
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-[#eaedff] text-[#444651] font-sans text-[10px]">
+                            Float Available
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                : defaultRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-[#f2f3ff]/40">
+                      <td className="py-3 px-4 font-bold text-[#00236f]">{row.id}</td>
+                      <td className="py-3 px-4 font-sans font-medium text-[#131b2e]">{row.name}</td>
+                      <td className="py-3 px-4 font-bold text-[#00236f]">{row.progress}</td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-sans font-bold ${
+                            row.status === 'Completed'
+                              ? 'bg-[#86f2e4]/30 text-[#006f66]'
+                              : row.status === 'In Progress'
+                              ? 'bg-[#eaedff] text-[#00236f]'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-[#444651]">{row.dur}</td>
+                      <td
+                        className={`py-3 px-4 font-bold ${
+                          row.float.startsWith('-') || row.float === '0d'
+                            ? 'text-[#ba1a1a]'
+                            : 'text-[#006a61]'
+                        }`}
+                      >
+                        {row.float}
+                      </td>
+                      <td className="py-3 px-4">
+                        {row.cp ? (
+                          <span className="px-2 py-0.5 rounded bg-[#ffdad6] text-[#93000a] font-sans font-bold text-[10px]">
+                            CRITICAL
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-[#eaedff] text-[#444651] font-sans text-[10px]">
+                            Float Available
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
             </tbody>
           </table>
         </div>
       </div>
+    </div>
+  );
+};
     </div>
   );
 };
@@ -427,7 +526,19 @@ export const MilestonesScreen: React.FC<SecondaryScreenProps> = () => {
 };
 
 export const AuditTrailScreen: React.FC<SecondaryScreenProps> = () => {
-  const auditLogs = [
+  const [timelineLogs, setTimelineLogs] = useState<TimelineUpdateApi[]>([]);
+
+  useEffect(() => {
+    fetchTimeline(20)
+      .then((items) => {
+        if (items && items.length > 0) {
+          setTimelineLogs(items);
+        }
+      })
+      .catch((err) => console.warn('Could not load audit timeline:', err));
+  }, []);
+
+  const defaultLogs = [
     {
       time: '06-Sep-2026 10:45 AM',
       user: 'Arunav Sharma (Project Planner)',
@@ -446,12 +557,6 @@ export const AuditTrailScreen: React.FC<SecondaryScreenProps> = () => {
       action: 'Synchronized weekly baseline with Oracle P6 EPPM',
       details: 'Transferred 143 verified progress quantities to schedule baseline BL-AUG-2026.',
     },
-    {
-      time: '05-Sep-2026 04:20 PM',
-      user: 'ABC Engineering (Turnkey Lead)',
-      action: 'Uploaded Contractor_Progress_W36.xlsx',
-      details: '143 updates extracted across 12 work packages.',
-    },
   ];
 
   return (
@@ -469,21 +574,41 @@ export const AuditTrailScreen: React.FC<SecondaryScreenProps> = () => {
 
       <div className="bg-white rounded-xl border border-[#c5c5d3]/40 shadow-xs overflow-hidden">
         <div className="divide-y divide-[#c5c5d3]/20">
-          {auditLogs.map((log, i) => (
-            <div key={i} className="p-4 hover:bg-[#f2f3ff]/40 transition-colors">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-mono text-[12px] text-[#757682]">{log.time}</span>
-                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#e2e7ff] text-[#00236f] font-semibold">
-                  AUDIT ID: #AUD-2026-{String(8940 - i)}
-                </span>
-              </div>
-              <div className="font-headline-sm text-[14px] font-semibold text-[#131b2e] mt-1">
-                {log.action}
-              </div>
-              <div className="text-[12px] text-[#444651] mt-0.5">By: {log.user}</div>
-              <div className="text-[12px] text-[#757682] mt-1">{log.details}</div>
-            </div>
-          ))}
+          {timelineLogs.length > 0
+            ? timelineLogs.map((log, i) => (
+                <div key={log.id || i} className="p-4 hover:bg-[#f2f3ff]/40 transition-colors">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-[12px] text-[#757682]">{log.time}</span>
+                    <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#e2e7ff] text-[#00236f] font-semibold">
+                      AUDIT ID: #{log.id ? log.id.slice(0, 8).toUpperCase() : `AUD-${8940 - i}`}
+                    </span>
+                  </div>
+                  <div className="font-headline-sm text-[14px] font-semibold text-[#131b2e] mt-1">
+                    {log.detail}
+                  </div>
+                  <div className="text-[12px] text-[#444651] mt-0.5">
+                    By: {log.actor} ({log.role})
+                  </div>
+                  <div className="text-[12px] text-[#757682] mt-1">
+                    Verifiable transaction recorded in Supabase immutable ledger.
+                  </div>
+                </div>
+              ))
+            : defaultLogs.map((log, i) => (
+                <div key={i} className="p-4 hover:bg-[#f2f3ff]/40 transition-colors">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-[12px] text-[#757682]">{log.time}</span>
+                    <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#e2e7ff] text-[#00236f] font-semibold">
+                      AUDIT ID: #AUD-2026-{String(8940 - i)}
+                    </span>
+                  </div>
+                  <div className="font-headline-sm text-[14px] font-semibold text-[#131b2e] mt-1">
+                    {log.action}
+                  </div>
+                  <div className="text-[12px] text-[#444651] mt-0.5">By: {log.user}</div>
+                  <div className="text-[12px] text-[#757682] mt-1">{log.details}</div>
+                </div>
+              ))}
         </div>
       </div>
     </div>

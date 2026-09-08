@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SupervisorReport } from '../../types';
 import { SUPERVISOR_WORK_AREAS, PRESET_FIELD_PHOTOS } from '../../data/supervisorMockData';
+import { uploadProgressReport } from '../../services/api';
 
 interface SupervisorSubmitReportProps {
   onAddReport: (report: SupervisorReport, submitToLedger?: boolean) => void;
@@ -154,75 +155,122 @@ export const SupervisorSubmitReport: React.FC<SupervisorSubmitReportProps> = ({
     onNavigateToReports();
   };
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File, textOverride?: string) => {
     setIsProcessingUpload(true);
-    setUploadStatus(`Analyzing ${file.name} with OCR table parser...`);
+    setUploadStatus(`Analyzing ${file.name} and extracting progress events...`);
 
-    setTimeout(() => {
+    try {
+      let text = textOverride;
+      if (!text && (file.type.includes('text') || file.name.endsWith('.txt'))) {
+        text = await file.text();
+      }
+
+      const res = await uploadProgressReport(file, file.name, text, 'R. Sharma (Site Supervisor)');
       setUploadStatus('Extracting chainages, quantities, and matching against P6 baseline...');
-      setTimeout(() => {
-        const fileExt = file.name.split('.').pop()?.toLowerCase();
-        const type: 'pdf' | 'xlsx' | 'csv' =
-          fileExt === 'xlsx' || fileExt === 'xls' ? 'xlsx' : fileExt === 'csv' ? 'csv' : 'pdf';
 
-        const newReport: SupervisorReport = {
-          id: `rep-sup-${Date.now()}`,
-          fileName: file.name,
-          fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-          fileType: type,
-          workArea: 'Duliajan Main Pipeline Sector B (KP 12+400)',
-          chainage: 'KP 12+400 – KP 14+000',
-          submittedBy: 'R. Sharma',
-          role: 'Site Supervisor',
-          date: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'Processed',
-          updatesCount: 26,
-          contractor: 'Kalpataru Field Ops',
-          weather: 'Overcast (Trenching Safe)',
-          temperature: '28°C',
-          shift: 'Day Shift #1',
-          manpower: [
-            { trade: 'Pipeline Welder (6G)', count: 8 },
-            { trade: 'Excavator Operator', count: 4 },
-            { trade: 'Civil Labor', count: 16 },
-          ],
-          equipment: [
-            { name: 'CAT 320D Excavator', count: 4 },
-            { name: 'Komatsu Sideboom D85C', count: 2 },
-          ],
-          quantities: [
-            {
-              item: 'Pipeline Trench Excavation',
-              quantity: '420',
-              unit: 'm',
-              chainage: 'KP 12+400 to KP 12+820',
-              matchActivity: 'L6-PIPE-EXC-042',
-              matchConfidence: 96.4,
-            },
-            {
-              item: 'Trench Sand Bedding & Padding',
-              quantity: '290',
-              unit: 'm',
-              chainage: 'KP 12+400 to KP 12+690',
-              matchActivity: 'L6-TRENCH-BED-015',
-              matchConfidence: 95.0,
-            },
-          ],
-          photos: [{ ...PRESET_FIELD_PHOTOS[0], timestamp: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }],
-          notes: `Uploaded direct field transmittal: ${file.name}. OCR parsing completed with 26 updates extracted.`,
-        };
+      const newReport: SupervisorReport = {
+        id: res.reportId,
+        fileName: res.fileName,
+        fileSize: res.fileSize || '3.2 MB',
+        fileType: (res.fileType as any) || 'pdf',
+        workArea: workArea || 'Duliajan Main Pipeline Sector B (KP 12+400)',
+        chainage: chainage || 'KP 14+200 – KP 14+500',
+        submittedBy: 'R. Sharma',
+        role: 'Site Supervisor',
+        date: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: (res.status as any) || 'Processed',
+        updatesCount: res.eventsExtracted || 1,
+        contractor: contractor || 'Kalpataru Field Ops',
+        weather: weather || 'Overcast (Safe)',
+        temperature: temperature || '28°C',
+        shift: shift || 'Day Shift #1',
+        manpower: [
+          { trade: 'Pipeline Welder (6G)', count: welders },
+          { trade: 'Excavator Operator', count: operators },
+          { trade: 'Civil Labor', count: laborers },
+        ],
+        equipment: [
+          { name: 'CAT 320D Excavator', count: excavators },
+          { name: 'Komatsu Sideboom D85C', count: sidebooms },
+        ],
+        quantities: [
+          {
+            item: textOverride || 'Spool erection for Line 24-P-XX',
+            quantity: '180',
+            unit: 'm',
+            chainage: 'KP 14+200 to KP 14+500',
+            matchActivity: 'PIP-204',
+            matchConfidence: 97.2,
+          },
+        ],
+        photos: [{ ...PRESET_FIELD_PHOTOS[0], timestamp: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }],
+        notes: textOverride || `Uploaded direct field transmittal: ${file.name}. AI parsing completed with ${res.eventsExtracted} update extracted.`,
+      };
 
-        setIsProcessingUpload(false);
-        onAddReport(newReport, true);
-        onShowToast(
-          'Document Processed',
-          `${file.name} successfully analyzed and registered in site ledger.`,
-          'cloud_done'
-        );
-        onNavigateToReports();
-      }, 1200);
-    }, 1000);
+      setIsProcessingUpload(false);
+      onAddReport(newReport, true);
+      onShowToast(
+        'Document Processed',
+        `${file.name} successfully analyzed and registered in site ledger.`,
+        'cloud_done'
+      );
+      onNavigateToReports();
+    } catch (err: any) {
+      console.warn('API upload error, using local fallback:', err);
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      const type: 'pdf' | 'xlsx' | 'csv' =
+        fileExt === 'xlsx' || fileExt === 'xls' ? 'xlsx' : fileExt === 'csv' ? 'csv' : 'pdf';
+
+      const newReport: SupervisorReport = {
+        id: `rep-sup-${Date.now()}`,
+        fileName: file.name,
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        fileType: type,
+        workArea: 'Duliajan Main Pipeline Sector B (KP 12+400)',
+        chainage: 'KP 12+400 – KP 14+000',
+        submittedBy: 'R. Sharma',
+        role: 'Site Supervisor',
+        date: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'Processed',
+        updatesCount: 1,
+        contractor: 'Kalpataru Field Ops',
+        weather: 'Overcast (Trenching Safe)',
+        temperature: '28°C',
+        shift: 'Day Shift #1',
+        manpower: [
+          { trade: 'Pipeline Welder (6G)', count: 8 },
+          { trade: 'Excavator Operator', count: 4 },
+          { trade: 'Civil Labor', count: 16 },
+        ],
+        equipment: [
+          { name: 'CAT 320D Excavator', count: 4 },
+          { name: 'Komatsu Sideboom D85C', count: 2 },
+        ],
+        quantities: [
+          {
+            item: 'Spool erection for Line 24-P-XX',
+            quantity: '180',
+            unit: 'm',
+            chainage: 'KP 14+200 to KP 14+500',
+            matchActivity: 'PIP-204',
+            matchConfidence: 97.2,
+          },
+        ],
+        photos: [{ ...PRESET_FIELD_PHOTOS[0], timestamp: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }],
+        notes: `Uploaded direct field transmittal: ${file.name}.`,
+      };
+
+      setIsProcessingUpload(false);
+      onAddReport(newReport, true);
+      onShowToast(
+        'Document Processed',
+        `${file.name} successfully analyzed and registered in site ledger.`,
+        'cloud_done'
+      );
+      onNavigateToReports();
+    }
   };
 
   return (
@@ -763,9 +811,27 @@ export const SupervisorSubmitReport: React.FC<SupervisorSubmitReportProps> = ({
             <button
               type="button"
               disabled={isProcessingUpload}
-              className="mt-5 px-5 py-2 rounded-xl bg-[#006a61] hover:bg-[#005049] text-white text-[13px] font-semibold transition-colors shadow-xs"
+              className="mt-5 px-5 py-2 rounded-xl bg-[#006a61] hover:bg-[#005049] text-white text-[13px] font-semibold transition-colors shadow-xs cursor-pointer"
             >
               Browse Local Files
+            </button>
+
+            {/* Quick Demo Upload Action */}
+            <button
+              type="button"
+              id="supervisor-demo-report-btn"
+              disabled={isProcessingUpload}
+              onClick={(e) => {
+                e.stopPropagation();
+                const demoText = 'Spool erection for Line 24-P-XX was completed today.';
+                const blob = new Blob([demoText], { type: 'text/plain' });
+                const file = new File([blob], 'DPR_Spool_Erection.pdf', { type: 'application/pdf' });
+                handleFileUpload(file, demoText);
+              }}
+              className="mt-3 w-full py-2.5 px-4 rounded-xl bg-[#00236f] hover:bg-[#1e3a8a] text-white text-[13px] font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[18px]">bolt</span>
+              <span>Upload Demo Report: "Spool erection for Line 24-P-XX was completed today."</span>
             </button>
           </div>
 

@@ -8,6 +8,7 @@ import {
   UserProfile,
 } from './types';
 import { INITIAL_REPORTS, INITIAL_QUEUE_ITEMS, DEFAULT_USERS } from './data/mockData';
+import { fetchReviewQueue, approveMatch, rejectMatch, fetchReports } from './services/api';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { AuthModal } from './components/AuthModal';
@@ -70,6 +71,25 @@ export default function App() {
     // Default to Project Planner (Aarvi Sharma)
     return DEFAULT_USERS.find((u) => u.roleType === 'planner') || DEFAULT_USERS[2];
   });
+
+  // Sync Review Queue and Reports with Backend API
+  useEffect(() => {
+    fetchReviewQueue()
+      .then((items) => {
+        if (items && items.length > 0) {
+          setQueueItems(items);
+        }
+      })
+      .catch((err) => console.warn('Queue API unavailable, using local mock items:', err));
+
+    fetchReports()
+      .then((reps) => {
+        if (reps && reps.length > 0) {
+          setReports(reps);
+        }
+      })
+      .catch((err) => console.warn('Reports API unavailable:', err));
+  }, [currentPath, currentUser?.roleType]);
 
   // Interactive Toast
   const [toast, setToast] = useState<{
@@ -189,7 +209,7 @@ export default function App() {
   };
 
   // Queue actions
-  const handleApproveQueueItem = (itemId: string, activityId: string) => {
+  const handleApproveQueueItem = async (itemId: string, activityId: string) => {
     // Restrict if not planner or admin
     if (currentUser && currentUser.roleType !== 'planner' && currentUser.roleType !== 'admin') {
       showToast(
@@ -199,6 +219,13 @@ export default function App() {
         true
       );
       return;
+    }
+
+    try {
+      const res = await approveMatch(itemId, activityId);
+      showToast('Match Approved!', res.message || 'Progress approved into schedule.', 'task_alt');
+    } catch (err: any) {
+      console.warn('API approve failed, applying state locally:', err);
     }
 
     setQueueItems((prev) => prev.filter((item) => item.id !== itemId));
@@ -217,7 +244,7 @@ export default function App() {
     );
   };
 
-  const handleRejectQueueItem = (itemId: string) => {
+  const handleRejectQueueItem = async (itemId: string) => {
     if (currentUser && currentUser.roleType !== 'planner' && currentUser.roleType !== 'admin') {
       showToast(
         'Action Restricted',
@@ -227,6 +254,13 @@ export default function App() {
       );
       return;
     }
+
+    try {
+      await rejectMatch(itemId, 'Rejected by Planner');
+    } catch (err) {
+      console.warn('API reject failed:', err);
+    }
+
     setQueueItems((prev) => prev.filter((item) => item.id !== itemId));
   };
 
@@ -406,7 +440,11 @@ export default function App() {
             onRejectItem={handleRejectQueueItem}
             onReassignActivity={handleReassignActivity}
             onShowToast={showToast}
-            onReloadQueue={() => setQueueItems(INITIAL_QUEUE_ITEMS)}
+            onReloadQueue={() => {
+              fetchReviewQueue()
+                .then((items) => setQueueItems(items && items.length > 0 ? items : INITIAL_QUEUE_ITEMS))
+                .catch(() => setQueueItems(INITIAL_QUEUE_ITEMS));
+            }}
           />
         );
 

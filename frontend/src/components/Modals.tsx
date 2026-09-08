@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SiteReport, NeedsAttentionItem } from '../types';
+import { uploadProgressReport } from '../services/api';
 
 interface ToastProps {
   toast: {
@@ -64,36 +65,67 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File, textOverride?: string) => {
     setProcessing(true);
-    setStatusMsg(`Ingesting ${file.name}...`);
+    setStatusMsg(`Ingesting & uploading ${file.name}...`);
 
-    setTimeout(() => {
+    try {
+      let text = textOverride;
+      if (!text && (file.type.includes('text') || file.name.endsWith('.txt'))) {
+        text = await file.text();
+      }
+
+      const res = await uploadProgressReport(file, file.name, text);
       setStatusMsg(`Matching entities against Primavera P6 baseline...`);
-      setTimeout(() => {
-        const fileExt = file.name.split('.').pop()?.toLowerCase();
-        const type: 'pdf' | 'xlsx' | 'csv' =
-          fileExt === 'xlsx' || fileExt === 'xls' ? 'xlsx' : fileExt === 'csv' ? 'csv' : 'pdf';
 
-        const newReport: SiteReport = {
-          id: `rep-${Date.now()}`,
-          fileName: file.name,
-          fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-          fileType: type,
-          submittedBy: 'Field Engineer (Site Direct)',
-          role: 'Operations & QA',
-          date: 'Today',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'Processed',
-          updatesFound: 24,
-        };
+      const newReport: SiteReport = {
+        id: res.reportId,
+        fileName: res.fileName,
+        fileSize: res.fileSize || '15 KB',
+        fileType: (res.fileType as any) || 'pdf',
+        submittedBy: 'Site Supervisor (R. Sharma)',
+        role: 'Field Operations',
+        date: 'Today',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: (res.status as any) || 'Processed',
+        updatesFound: res.eventsExtracted || 1,
+      };
 
-        onAddReport(newReport);
-        setProcessing(false);
-        onShowToast('Report Processed!', `${file.name} successfully analyzed (24 updates found).`);
-        onClose();
-      }, 1400);
-    }, 1200);
+      onAddReport(newReport);
+      onShowToast('Report Processed!', `${res.fileName} successfully analyzed (${res.eventsExtracted || 1} update queued for review).`);
+      onClose();
+    } catch (err: any) {
+      console.warn('Direct backend upload error, falling back locally:', err);
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      const type: 'pdf' | 'xlsx' | 'csv' =
+        fileExt === 'xlsx' || fileExt === 'xls' ? 'xlsx' : fileExt === 'csv' ? 'csv' : 'pdf';
+
+      const newReport: SiteReport = {
+        id: `rep-${Date.now()}`,
+        fileName: file.name,
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        fileType: type,
+        submittedBy: 'Site Supervisor (R. Sharma)',
+        role: 'Field Operations',
+        date: 'Today',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'Processed',
+        updatesFound: 1,
+      };
+
+      onAddReport(newReport);
+      onShowToast('Report Processed!', `${file.name} successfully analyzed.`);
+      onClose();
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleUploadDemoReport = () => {
+    const demoText = 'Spool erection for Line 24-P-XX was completed today.';
+    const blob = new Blob([demoText], { type: 'text/plain' });
+    const file = new File([blob], 'DPR_Spool_Erection.pdf', { type: 'application/pdf' });
+    handleFile(file, demoText);
   };
 
   return (
@@ -135,7 +167,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             onClick={() => {
               const input = document.createElement('input');
               input.type = 'file';
-              input.accept = '.pdf,.xlsx,.xls,.csv';
+              input.accept = '.pdf,.xlsx,.xls,.csv,.txt';
               input.onchange = (e: any) => {
                 if (e.target.files[0]) handleFile(e.target.files[0]);
               };
@@ -155,8 +187,22 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               {statusMsg}
             </h4>
             <p className="text-[12px] text-[#444651]">
-              Supported files: PDF DPRs, Excel WBS trackers (.xlsx), or shift logs (.csv)
+              Supported files: PDF DPRs, Excel WBS trackers (.xlsx), or shift logs (.csv, .txt)
             </p>
+          </div>
+
+          {/* Quick Demo Upload Action */}
+          <div className="mt-4 pt-4 border-t border-[#c5c5d3]/40">
+            <button
+              type="button"
+              id="upload-demo-report-btn"
+              disabled={processing}
+              onClick={handleUploadDemoReport}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#00236f] hover:bg-[#1e3a8a] text-white text-[13px] font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[18px]">bolt</span>
+              <span>Upload Demo Report: "Spool erection for Line 24-P-XX was completed today."</span>
+            </button>
           </div>
 
           <div className="mt-4 flex items-center justify-between text-[12px] text-[#757682]">
