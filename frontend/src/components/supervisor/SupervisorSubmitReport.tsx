@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SupervisorReport } from '../../types';
+import { SupervisorReport, UserProfile } from '../../types';
 import { SUPERVISOR_WORK_AREAS, PRESET_FIELD_PHOTOS } from '../../data/supervisorMockData';
 import { uploadProgressReport } from '../../services/api';
 
@@ -7,12 +7,14 @@ interface SupervisorSubmitReportProps {
   onAddReport: (report: SupervisorReport, submitToLedger?: boolean) => void;
   onShowToast: (title: string, message: string, icon?: string, isError?: boolean) => void;
   onNavigateToReports: () => void;
+  currentUser: UserProfile;
 }
 
 export const SupervisorSubmitReport: React.FC<SupervisorSubmitReportProps> = ({
   onAddReport,
   onShowToast,
   onNavigateToReports,
+  currentUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'form' | 'upload'>('form');
 
@@ -112,8 +114,8 @@ export const SupervisorSubmitReport: React.FC<SupervisorSubmitReportProps> = ({
       fileType: fileName.endsWith('.xlsx') ? 'xlsx' : fileName.endsWith('.csv') ? 'csv' : 'pdf',
       workArea,
       chainage,
-      submittedBy: 'R. Sharma',
-      role: 'Site Supervisor',
+      submittedBy: currentUser.name,
+      role: currentUser.role,
       date: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: asDraft ? 'Draft' : 'Pending Verification',
@@ -165,7 +167,7 @@ export const SupervisorSubmitReport: React.FC<SupervisorSubmitReportProps> = ({
         text = await file.text();
       }
 
-      const res = await uploadProgressReport(file, file.name, text, 'R. Sharma (Site Supervisor)');
+      const res = await uploadProgressReport(file, file.name, text, currentUser.name);
       setUploadStatus('Extracting chainages, quantities, and matching against P6 baseline...');
 
       const newReport: SupervisorReport = {
@@ -175,8 +177,8 @@ export const SupervisorSubmitReport: React.FC<SupervisorSubmitReportProps> = ({
         fileType: (res.fileType as any) || 'pdf',
         workArea: workArea || 'Duliajan Main Pipeline Sector B (KP 12+400)',
         chainage: chainage || 'KP 14+200 – KP 14+500',
-        submittedBy: 'R. Sharma',
-        role: 'Site Supervisor',
+        submittedBy: currentUser.name,
+        role: currentUser.role,
         date: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: (res.status as any) || 'Processed',
@@ -217,59 +219,9 @@ export const SupervisorSubmitReport: React.FC<SupervisorSubmitReportProps> = ({
       );
       onNavigateToReports();
     } catch (err: any) {
-      console.warn('API upload error, using local fallback:', err);
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-      const type: 'pdf' | 'xlsx' | 'csv' =
-        fileExt === 'xlsx' || fileExt === 'xls' ? 'xlsx' : fileExt === 'csv' ? 'csv' : 'pdf';
-
-      const newReport: SupervisorReport = {
-        id: `rep-sup-${Date.now()}`,
-        fileName: file.name,
-        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        fileType: type,
-        workArea: 'Duliajan Main Pipeline Sector B (KP 12+400)',
-        chainage: 'KP 12+400 – KP 14+000',
-        submittedBy: 'R. Sharma',
-        role: 'Site Supervisor',
-        date: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        status: 'Processed',
-        updatesCount: 1,
-        contractor: 'Kalpataru Field Ops',
-        weather: 'Overcast (Trenching Safe)',
-        temperature: '28°C',
-        shift: 'Day Shift #1',
-        manpower: [
-          { trade: 'Pipeline Welder (6G)', count: 8 },
-          { trade: 'Excavator Operator', count: 4 },
-          { trade: 'Civil Labor', count: 16 },
-        ],
-        equipment: [
-          { name: 'CAT 320D Excavator', count: 4 },
-          { name: 'Komatsu Sideboom D85C', count: 2 },
-        ],
-        quantities: [
-          {
-            item: 'Spool erection for Line 24-P-XX',
-            quantity: '180',
-            unit: 'm',
-            chainage: 'KP 14+200 to KP 14+500',
-            matchActivity: 'PIP-204',
-            matchConfidence: 97.2,
-          },
-        ],
-        photos: [{ ...PRESET_FIELD_PHOTOS[0], timestamp: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }],
-        notes: `Uploaded direct field transmittal: ${file.name}.`,
-      };
-
       setIsProcessingUpload(false);
-      onAddReport(newReport, true);
-      onShowToast(
-        'Document Processed',
-        `${file.name} successfully analyzed and registered in site ledger.`,
-        'cloud_done'
-      );
-      onNavigateToReports();
+      setUploadStatus('Upload failed. Check the backend connection and try again.');
+      onShowToast('Upload Failed', err.message || 'The report could not be processed.', 'error', true);
     }
   };
 
@@ -713,7 +665,7 @@ export const SupervisorSubmitReport: React.FC<SupervisorSubmitReportProps> = ({
               <div className="p-3 bg-[#f8f9ff] rounded-xl border border-[#c5c5d3]/30 text-[12px] space-y-1 text-[#444651]">
                 <div className="flex justify-between">
                   <span>Sign-off Role:</span>
-                  <span className="font-semibold text-[#131b2e]">Site Supervisor (R. Sharma)</span>
+                  <span className="font-semibold text-[#131b2e]">{currentUser.name} ({currentUser.role})</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Corridor:</span>

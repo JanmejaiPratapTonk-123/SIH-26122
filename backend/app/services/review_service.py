@@ -57,6 +57,7 @@ class ReviewService:
                 title=act.name if act else (ev.description or "Unknown Activity"),
                 work_package=act.work_package or "General",
                 activity_id=act.activity_code if act else "N/A",
+                activity_uuid=str(act.id) if act else None,
                 confidence=m.confidence_score,
                 match_rationale=m.match_rationale or "Matched by semantic extraction.",
                 highlight_corridor=ev.location_corridor or (f"{act.corridor_start or ''} to {act.corridor_finish or ''}".strip()),

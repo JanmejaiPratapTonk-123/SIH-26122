@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, UserRoleType } from '../types';
 import { DEFAULT_USERS } from '../data/mockData';
+import { apiLogin } from '../services/api';
 
 interface LoginPageProps {
   onLogin: (user: UserProfile) => void;
@@ -66,23 +67,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowToast }) =>
   const activeRoleCard = roleOptions.find((r) => r.roleType === selectedRoleType) || roleOptions[2];
 
   const [email, setEmail] = useState(activeRoleCard.user.email);
-  const [password, setPassword] = useState('••••••••••••');
+  const [password, setPassword] = useState('password123');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const handleSelectRole = (card: RoleCardData) => {
     setSelectedRoleType(card.roleType);
     setEmail(card.user.email);
-    setPassword('••••••••••••');
+    setPassword('password123');
   };
 
-  const handleContinue = (e: React.FormEvent) => {
+  const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
-    const userToLogin = activeRoleCard.user;
-    onLogin(userToLogin);
-    onShowToast(
-      'Authenticated',
-      `Signed in as ${userToLogin.name} (${userToLogin.role}).`,
-      'verified'
-    );
+    setIsLoggingIn(true);
+    try {
+      const response = await apiLogin(email, password);
+      onLogin(response.user as UserProfile);
+      onShowToast('Authenticated', `Signed in as ${response.user.name} (${response.user.role}).`, 'verified');
+    } catch (err: any) {
+      onShowToast('Sign-in Failed', err.message || 'Could not authenticate with the backend.', 'error', true);
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   return (
@@ -285,6 +290,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowToast }) =>
 
               <button
                 type="submit"
+                disabled={isLoggingIn}
                 className="w-full sm:w-auto h-12 px-8 rounded-xl bg-[#00236f] hover:bg-[#1e3a8a] text-white font-semibold text-[14px] shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
               >
                 <span>Continue as {activeRoleCard.title}</span>

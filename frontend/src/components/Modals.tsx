@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SiteReport, NeedsAttentionItem } from '../types';
+import { SiteReport, NeedsAttentionItem, UserProfile } from '../types';
 import { uploadProgressReport } from '../services/api';
 
 interface ToastProps {
@@ -51,6 +51,7 @@ interface UploadModalProps {
   onClose: () => void;
   onAddReport: (report: SiteReport) => void;
   onShowToast: (title: string, message: string) => void;
+  currentUser: UserProfile;
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({
@@ -58,6 +59,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onClose,
   onAddReport,
   onShowToast,
+  currentUser,
 }) => {
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -75,7 +77,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         text = await file.text();
       }
 
-      const res = await uploadProgressReport(file, file.name, text);
+      const res = await uploadProgressReport(file, file.name, text, currentUser.name);
       setStatusMsg(`Matching entities against Primavera P6 baseline...`);
 
       const newReport: SiteReport = {
@@ -83,8 +85,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         fileName: res.fileName,
         fileSize: res.fileSize || '15 KB',
         fileType: (res.fileType as any) || 'pdf',
-        submittedBy: 'Site Supervisor (R. Sharma)',
-        role: 'Field Operations',
+        submittedBy: currentUser.name,
+        role: currentUser.role,
         date: 'Today',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: (res.status as any) || 'Processed',
@@ -105,8 +107,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         fileName: file.name,
         fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
         fileType: type,
-        submittedBy: 'Site Supervisor (R. Sharma)',
-        role: 'Field Operations',
+        submittedBy: currentUser.name,
+        role: currentUser.role,
         date: 'Today',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: 'Processed',

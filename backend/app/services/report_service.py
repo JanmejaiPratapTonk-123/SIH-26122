@@ -7,9 +7,11 @@ and initial review queue generation.
 
 from typing import Optional, List, Dict, Any
 import uuid
+from io import BytesIO
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from PyPDF2 import PdfReader
 
 from app.models.models import ProgressReport, ProgressEvent, ActivityMatch, Activity, Schedule
 from app.repositories.report_repository import ReportRepository
@@ -61,7 +63,16 @@ class ReportService:
         )
 
         # 2. Extract text (or use provided text)
-        extracted_text = text_override or file_content.decode("utf-8", errors="ignore")
+        if text_override:
+            extracted_text = text_override
+        elif file_type == "pdf":
+            try:
+                reader = PdfReader(BytesIO(file_content))
+                extracted_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+            except Exception:
+                extracted_text = ""
+        else:
+            extracted_text = file_content.decode("utf-8", errors="ignore")
         events_data: List[ExtractedEvent] = self.extractor.extract_events(
             extracted_text, metadata=metadata
         )

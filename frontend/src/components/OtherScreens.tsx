@@ -5,6 +5,7 @@ import { fetchActiveSchedule, fetchTimeline, ActivityApiItem, TimelineUpdateApi 
 interface SecondaryScreenProps {
   onNavigate: (path: NavigationPath) => void;
   onShowToast: (title: string, msg: string) => void;
+  currentUser?: UserProfile | null;
 }
 
 interface SettingsScreenProps extends SecondaryScreenProps {
@@ -402,9 +403,6 @@ export const ScheduleScreen: React.FC<SecondaryScreenProps> = () => {
     </div>
   );
 };
-    </div>
-  );
-};
 
 export const MilestonesScreen: React.FC<SecondaryScreenProps> = () => {
   const milestones = [
@@ -525,7 +523,7 @@ export const MilestonesScreen: React.FC<SecondaryScreenProps> = () => {
   );
 };
 
-export const AuditTrailScreen: React.FC<SecondaryScreenProps> = () => {
+export const AuditTrailScreen: React.FC<SecondaryScreenProps> = ({ currentUser }) => {
   const [timelineLogs, setTimelineLogs] = useState<TimelineUpdateApi[]>([]);
 
   useEffect(() => {
@@ -547,7 +545,7 @@ export const AuditTrailScreen: React.FC<SecondaryScreenProps> = () => {
     },
     {
       time: '06-Sep-2026 10:42 AM',
-      user: 'Site Supervisor R. Sharma',
+      user: currentUser ? `${currentUser.name} (${currentUser.role})` : 'Site Supervisor',
       action: 'Uploaded DPR_06_Sep_2026.pdf',
       details: 'Ingestion engine identified 28 updates with 96.8% mean confidence.',
     },

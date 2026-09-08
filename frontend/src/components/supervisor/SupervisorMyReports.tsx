@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SupervisorReport } from '../../types';
+import { SupervisorReport, UserProfile } from '../../types';
 
 interface SupervisorMyReportsProps {
   reports: SupervisorReport[];
@@ -9,6 +9,7 @@ interface SupervisorMyReportsProps {
   onDeleteDraft: (reportId: string) => void;
   onNavigateSubmit: () => void;
   onShowToast: (title: string, message: string, icon?: string, isError?: boolean) => void;
+  currentUser: UserProfile;
 }
 
 export const SupervisorMyReports: React.FC<SupervisorMyReportsProps> = ({
@@ -19,6 +20,7 @@ export const SupervisorMyReports: React.FC<SupervisorMyReportsProps> = ({
   onDeleteDraft,
   onNavigateSubmit,
   onShowToast,
+  currentUser,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Processed' | 'Pending Verification' | 'Draft'>('All');
@@ -345,7 +347,7 @@ export const SupervisorMyReports: React.FC<SupervisorMyReportsProps> = ({
               </div>
               <div className="flex justify-between">
                 <span>Signer:</span>
-                <span>R. Sharma (Site Supervisor)</span>
+                <span>{currentUser.name} ({currentUser.role})</span>
               </div>
               <div className="flex justify-between">
                 <span>Sector:</span>

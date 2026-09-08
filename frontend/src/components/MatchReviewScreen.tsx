@@ -43,11 +43,7 @@ export const MatchReviewScreen: React.FC<MatchReviewScreenProps> = ({
 
   const handleApprove = () => {
     if (!currentItem) return;
-    onApproveItem(currentItem.id, currentItem.suggestedActivity.activityId);
-    onShowToast(
-      'Match Approved!',
-      `${currentItem.suggestedActivity.title} updated to ${currentItem.suggestedActivity.afterApprovalPct}% completion.`
-    );
+    onApproveItem(currentItem.id, currentItem.suggestedActivity.activityUuid || '');
     if (safeIndex >= totalItems - 1) {
       setCurrentIndex(Math.max(0, totalItems - 2));
     }

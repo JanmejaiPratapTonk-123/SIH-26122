@@ -84,6 +84,7 @@ export interface ReviewQueueItem {
     title: string;
     workPackage: string;
     activityId: string;
+    activityUuid?: string;
     confidence: number;
     matchRationale: string;
     highlightCorridor?: string;

@@ -5,6 +5,7 @@ import {
   SupervisorShiftNote,
   SupervisorFieldUpdate,
   SiteReport,
+  UserProfile,
 } from '../types';
 import {
   INITIAL_SUPERVISOR_REPORTS,
@@ -28,6 +29,7 @@ interface SupervisorHomeScreenProps {
   onOpenUploadModal?: () => void;
   onShowToast: (title: string, message: string, icon?: string, isError?: boolean) => void;
   sidebarOpen?: boolean;
+  currentUser: UserProfile;
   onGlobalAddReport?: (report: SiteReport) => void;
 }
 
@@ -37,28 +39,47 @@ export const SupervisorHomeScreen: React.FC<SupervisorHomeScreenProps> = ({
   onOpenUploadModal,
   onShowToast,
   sidebarOpen = true,
+  currentUser,
   onGlobalAddReport,
 }) => {
   // 1. Persistent Reports State
   const [reports, setReports] = useState<SupervisorReport[]>(() => {
     try {
       const saved = localStorage.getItem('p2p_supervisor_reports');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        return (JSON.parse(saved) as SupervisorReport[]).map((report) => ({
+          ...report,
+          submittedBy: currentUser.name,
+          role: currentUser.role,
+        }));
+      }
     } catch (e) {
       console.error('Failed to load supervisor reports', e);
     }
-    return INITIAL_SUPERVISOR_REPORTS;
+    return INITIAL_SUPERVISOR_REPORTS.map((report) => ({
+      ...report,
+      submittedBy: currentUser.name,
+      role: currentUser.role,
+    }));
   });
 
   // 2. Persistent Shift Notes State
   const [shiftNotes, setShiftNotes] = useState<SupervisorShiftNote[]>(() => {
     try {
       const saved = localStorage.getItem('p2p_supervisor_notes');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        return (JSON.parse(saved) as SupervisorShiftNote[]).map((note) => ({
+          ...note,
+          author: `${currentUser.name} (${currentUser.role})`,
+        }));
+      }
     } catch (e) {
       console.error('Failed to load supervisor notes', e);
     }
-    return INITIAL_SUPERVISOR_NOTES;
+    return INITIAL_SUPERVISOR_NOTES.map((note) => ({
+      ...note,
+      author: `${currentUser.name} (${currentUser.role})`,
+    }));
   });
 
   // 3. Persistent Updates State
@@ -232,7 +253,7 @@ export const SupervisorHomeScreen: React.FC<SupervisorHomeScreenProps> = ({
       chainage: activeSector,
       category: noteCategory,
       content: quickNote.trim(),
-      author: 'R. Sharma (Site Supervisor)',
+      author: `${currentUser.name} (${currentUser.role})`,
       photoUrl: attachedPhotoForNote?.url,
       photoCaption: attachedPhotoForNote?.caption,
     };
@@ -297,6 +318,7 @@ export const SupervisorHomeScreen: React.FC<SupervisorHomeScreenProps> = ({
           onAddReport={handleAddReport}
           onShowToast={onShowToast}
           onNavigateToReports={() => onNavigate('my-reports')}
+          currentUser={currentUser}
         />
         <SupervisorReportDetailsModal
           report={selectedReportForDetails}
@@ -319,6 +341,7 @@ export const SupervisorHomeScreen: React.FC<SupervisorHomeScreenProps> = ({
           onDeleteDraft={handleDeleteDraft}
           onNavigateSubmit={() => onNavigate('submit-report')}
           onShowToast={onShowToast}
+          currentUser={currentUser}
         />
         <SupervisorReportDetailsModal
           report={selectedReportForDetails}
@@ -394,7 +417,7 @@ export const SupervisorHomeScreen: React.FC<SupervisorHomeScreenProps> = ({
             </div>
           </div>
           <h1 className="font-headline-xl text-2xl sm:text-3xl md:text-4xl text-[#131b2e] tracking-tight font-bold">
-            Good morning, R. Sharma.
+            Good morning, {currentUser.name}.
           </h1>
           <p className="font-body-md text-[14px] sm:text-[16px] text-[#444651]">
             What&apos;s happening on the construction front today?

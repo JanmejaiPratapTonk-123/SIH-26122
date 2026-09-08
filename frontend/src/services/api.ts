@@ -8,13 +8,20 @@
 import { SiteReport, ReviewQueueItem, UserProfile } from '../types';
 
 export const DEFAULT_PROJECT_ID = '9a7e45eb-ffcb-4064-aef0-d948994feb06';
-const API_BASE = '/api/v1';
+const API_BASE = 'http://localhost:8000/api/v1';
+const AUTH_TOKEN_KEY = 'p2p_access_token';
+let resolvedProjectId: string | null = null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
     ...options,
   });
   if (!res.ok) {
@@ -45,10 +52,32 @@ export interface LoginResponse {
 }
 
 export async function apiLogin(email: string, password: string): Promise<LoginResponse> {
-  return apiFetch<LoginResponse>('/auth/login', {
+  const response = await apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
+  localStorage.setItem(AUTH_TOKEN_KEY, response.access_token);
+  return response;
+}
+
+export function clearApiSession(): void {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+interface ProjectSummary {
+  id: string;
+  code: string;
+}
+
+async function getProjectId(projectId: string): Promise<string> {
+  if (projectId !== DEFAULT_PROJECT_ID) return projectId;
+  if (resolvedProjectId) return resolvedProjectId;
+
+  const projects = await apiFetch<ProjectSummary[]>('/projects');
+  const project = projects.find((candidate) => candidate.code === 'DGPP-2026');
+  if (!project) throw new Error('Demo project DGPP-2026 was not found.');
+  resolvedProjectId = project.id;
+  return project.id;
 }
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
@@ -71,7 +100,7 @@ export async function uploadProgressReport(
   projectId: string = DEFAULT_PROJECT_ID
 ): Promise<ReportUploadResult> {
   const formData = new FormData();
-  formData.append('project_id', projectId);
+  formData.append('project_id', await getProjectId(projectId));
   formData.append('submitted_by_name', submittedByName);
   if (textContent) {
     formData.append('text_content', textContent);
@@ -80,6 +109,10 @@ export async function uploadProgressReport(
 
   const res = await fetch(`${API_BASE}/reports/upload`, {
     method: 'POST',
+    headers: (() => {
+      const token = localStorage.getItem(AUTH_TOKEN_KEY);
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    })(),
     body: formData,
   });
 
@@ -91,13 +124,13 @@ export async function uploadProgressReport(
 }
 
 export async function fetchReports(projectId: string = DEFAULT_PROJECT_ID): Promise<SiteReport[]> {
-  return apiFetch<SiteReport[]>(`/reports?project_id=${projectId}`);
+  return apiFetch<SiteReport[]>(`/reports?project_id=${await getProjectId(projectId)}`);
 }
 
 // ─── Review Queue ─────────────────────────────────────────────────────────────
 
 export async function fetchReviewQueue(projectId: string = DEFAULT_PROJECT_ID): Promise<ReviewQueueItem[]> {
-  return apiFetch<ReviewQueueItem[]>(`/matches/queue?project_id=${projectId}`);
+  return apiFetch<ReviewQueueItem[]>(`/matches/queue?project_id=${await getProjectId(projectId)}`);
 }
 
 // ─── Match Actions ────────────────────────────────────────────────────────────
@@ -174,7 +207,7 @@ export interface ScheduleResponseApi {
 export async function fetchActiveSchedule(
   projectId: string = DEFAULT_PROJECT_ID
 ): Promise<ScheduleResponseApi> {
-  return apiFetch<ScheduleResponseApi>(`/projects/${projectId}/schedule`);
+  return apiFetch<ScheduleResponseApi>(`/projects/${await getProjectId(projectId)}/schedule`);
 }
 
 // ─── Audit & Activity Logs ────────────────────────────────────────────────────
@@ -194,7 +227,7 @@ export async function fetchTimeline(
   limit = 10,
   projectId: string = DEFAULT_PROJECT_ID
 ): Promise<TimelineUpdateApi[]> {
-  return apiFetch<TimelineUpdateApi[]>(`/audit/timeline?project_id=${projectId}&limit=${limit}`);
+  return apiFetch<TimelineUpdateApi[]>(`/audit/timeline?project_id=${await getProjectId(projectId)}&limit=${limit}`);
 }
 
 export interface SystemLogApiItem {

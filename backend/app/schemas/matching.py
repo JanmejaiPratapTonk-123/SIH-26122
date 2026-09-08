@@ -22,6 +22,7 @@ class SuggestedActivity(BaseSchema):
     title: str
     work_package: str = Field(..., alias="workPackage")
     activity_id: str = Field(..., alias="activityId")
+    activity_uuid: Optional[str] = Field(None, alias="activityUuid")
     confidence: float
     match_rationale: str = Field(..., alias="matchRationale")
     highlight_corridor: Optional[str] = Field(None, alias="highlightCorridor")

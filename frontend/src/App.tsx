@@ -7,8 +7,8 @@ import {
   ReviewCandidate,
   UserProfile,
 } from './types';
-import { INITIAL_REPORTS, INITIAL_QUEUE_ITEMS, DEFAULT_USERS } from './data/mockData';
-import { fetchReviewQueue, approveMatch, rejectMatch, fetchReports } from './services/api';
+import { DEFAULT_USERS } from './data/mockData';
+import { fetchReviewQueue, approveMatch, rejectMatch, fetchReports, clearApiSession } from './services/api';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { AuthModal } from './components/AuthModal';
@@ -48,8 +48,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Core Data States
-  const [reports, setReports] = useState<SiteReport[]>(INITIAL_REPORTS);
-  const [queueItems, setQueueItems] = useState<ReviewQueueItem[]>(INITIAL_QUEUE_ITEMS);
+  const [reports, setReports] = useState<SiteReport[]>([]);
+  const [queueItems, setQueueItems] = useState<ReviewQueueItem[]>([]);
 
   // Modals & Popups
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -76,17 +76,13 @@ export default function App() {
   useEffect(() => {
     fetchReviewQueue()
       .then((items) => {
-        if (items && items.length > 0) {
-          setQueueItems(items);
-        }
+        setQueueItems(items || []);
       })
-      .catch((err) => console.warn('Queue API unavailable, using local mock items:', err));
+      .catch((err) => console.warn('Could not load review queue:', err));
 
     fetchReports()
       .then((reps) => {
-        if (reps && reps.length > 0) {
-          setReports(reps);
-        }
+        setReports(reps || []);
       })
       .catch((err) => console.warn('Reports API unavailable:', err));
   }, [currentPath, currentUser?.roleType]);
@@ -144,6 +140,7 @@ export default function App() {
 
   const handleSignOut = () => {
     setCurrentUser(null);
+    clearApiSession();
     try {
       localStorage.removeItem('p2p_active_user');
     } catch (e) {
@@ -196,8 +193,8 @@ export default function App() {
     setSelectedAttentionItem(null);
     setIsUploadModalOpen(false);
     setIsIntegrationsModalOpen(false);
-    setReports(INITIAL_REPORTS);
-    setQueueItems(INITIAL_QUEUE_ITEMS);
+    setReports([]);
+    setQueueItems([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('Page Reset', 'Page view, filters, and review queue items have been reset to default.');
   };
@@ -224,24 +221,20 @@ export default function App() {
     try {
       const res = await approveMatch(itemId, activityId);
       showToast('Match Approved!', res.message || 'Progress approved into schedule.', 'task_alt');
+      setQueueItems((prev) => prev.filter((item) => item.id !== itemId));
+      setReports((prev) =>
+        prev.map((r) => {
+          if (r.reviewCount && r.reviewCount > 0) {
+            const nextCount = r.reviewCount - 1;
+            return { ...r, reviewCount: nextCount, status: nextCount === 0 ? 'Processed' : 'Need Review' };
+          }
+          return r;
+        })
+      );
     } catch (err: any) {
-      console.warn('API approve failed, applying state locally:', err);
+      showToast('Approval Failed', err.message || 'The match could not be approved.', 'error', true);
+      return;
     }
-
-    setQueueItems((prev) => prev.filter((item) => item.id !== itemId));
-    setReports((prev) =>
-      prev.map((r) => {
-        if (r.reviewCount && r.reviewCount > 0) {
-          const nextCount = r.reviewCount - 1;
-          return {
-            ...r,
-            reviewCount: nextCount,
-            status: nextCount === 0 ? 'Processed' : 'Need Review',
-          };
-        }
-        return r;
-      })
-    );
   };
 
   const handleRejectQueueItem = async (itemId: string) => {
@@ -284,6 +277,7 @@ export default function App() {
               ...item.suggestedActivity,
               title: candidate.title,
               activityId: candidate.activityId,
+              activityUuid: candidate.id,
               workPackage: candidate.workPackage,
               confidence: candidate.matchPct,
               matchRationale: `Manually reassigned to ${candidate.title}. ${candidate.reason}`,
@@ -350,6 +344,7 @@ export default function App() {
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
               onShowToast={showToast}
               sidebarOpen={sidebarOpen}
+              currentUser={currentUser}
               onGlobalAddReport={handleAddReport}
             />
           );
@@ -398,6 +393,7 @@ export default function App() {
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
           onShowToast={showToast}
           sidebarOpen={sidebarOpen}
+          currentUser={currentUser}
           onGlobalAddReport={handleAddReport}
         />
       );
@@ -428,6 +424,7 @@ export default function App() {
             onOpenReportDetails={(report) => setSelectedReportForDetails(report)}
             onOpenConfigureIntegrations={() => setIsIntegrationsModalOpen(true)}
             searchFilter={searchQuery}
+            currentUser={currentUser}
           />
         );
 
@@ -442,8 +439,8 @@ export default function App() {
             onShowToast={showToast}
             onReloadQueue={() => {
               fetchReviewQueue()
-                .then((items) => setQueueItems(items && items.length > 0 ? items : INITIAL_QUEUE_ITEMS))
-                .catch(() => setQueueItems(INITIAL_QUEUE_ITEMS));
+                .then((items) => setQueueItems(items || []))
+                .catch((err) => showToast('Queue Refresh Failed', err.message || 'Could not reload review items.', 'error', true));
             }}
           />
         );
@@ -485,6 +482,7 @@ export default function App() {
           <AuditTrailScreen
             onNavigate={handleNavigate}
             onShowToast={showToast}
+            currentUser={currentUser}
           />
         );
 
@@ -586,6 +584,7 @@ export default function App() {
         onClose={() => setIsUploadModalOpen(false)}
         onAddReport={handleAddReport}
         onShowToast={showToast}
+        currentUser={currentUser}
       />
 
       <ReportDetailsModal

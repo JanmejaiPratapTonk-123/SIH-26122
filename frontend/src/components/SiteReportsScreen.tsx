@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { SiteReport, NavigationPath } from '../types';
+import { SiteReport, NavigationPath, UserProfile } from '../types';
 
 interface SiteReportsScreenProps {
   reports: SiteReport[];
@@ -8,6 +8,7 @@ interface SiteReportsScreenProps {
   onOpenReportDetails: (report: SiteReport) => void;
   onOpenConfigureIntegrations: () => void;
   searchFilter?: string;
+  currentUser: UserProfile;
 }
 
 export const SiteReportsScreen: React.FC<SiteReportsScreenProps> = ({
@@ -17,6 +18,7 @@ export const SiteReportsScreen: React.FC<SiteReportsScreenProps> = ({
   onOpenReportDetails,
   onOpenConfigureIntegrations,
   searchFilter = '',
+  currentUser,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -67,8 +69,8 @@ export const SiteReportsScreen: React.FC<SiteReportsScreenProps> = ({
           fileName: file.name,
           fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
           fileType: type,
-          submittedBy: 'Field Engineer (Direct Upload)',
-          role: 'Site Operations',
+          submittedBy: currentUser.name,
+          role: currentUser.role,
           date: 'Just now',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           status: 'Processed',
